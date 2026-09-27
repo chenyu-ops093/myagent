@@ -26,7 +26,8 @@ if prompt := st.chat_input("请输入你的问题（例如：现在几点？帮�
     with st.chat_message("assistant"):
         with st.spinner("Agent 正在思考..."):
             # 把之前的对话记录（不含当前这句）作为 history 传入
-            history = st.session_state.messages[:-1]
+        # 只保留最近4条消息（2轮对话），防止历史记录太长导致模型混乱
+            history = st.session_state.messages[-4:-1] 
             
             # 这里调用你写好的 react 函数
             result = react(prompt, history=history)
