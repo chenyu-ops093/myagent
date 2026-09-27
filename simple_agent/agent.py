@@ -107,13 +107,13 @@ def react(task, history=[], max_steps=8):
             observations.append({"ok": False, "error": "请重新输出正确的单行 JSON"})
             continue
 
+                # 检测无脑重复调用
         if decision.get("type") == "tool":
             current_tool = decision.get("tool")
             if current_tool == last_tool:
                 repeated_count += 1
-                if repeated_count >= 3:
+                if repeated_count >= 3:  # <--- 注意看这一行
                     return {"answer": "Agent 检测到陷入死循环，已强制停止。", "trace": trace, "status": "loop_detected"}
-            else:
                 repeated_count = 0
             last_tool = current_tool
 
