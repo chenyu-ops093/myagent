@@ -48,7 +48,7 @@ TOOLS = {
 }
 
 # ================= 提示词 =================
-def build_prompt(task, observations):
+def build_prompt(task, observations, history):
     tool_desc = "\n".join(
         f"- {name}: {info['desc']} 参数: {json.dumps(info['args'], ensure_ascii=False)}"
         for name, info in TOOLS.items()
@@ -91,14 +91,14 @@ def generate_json(prompt):
     return obj
 
 # ================= Agent 循环 =================
-def react(task, max_steps=8):
+def react(task, history=[], max_steps=8):
     trace = []
     observations = []
     last_tool = None
     repeated_count = 0
 
     for step in range(max_steps):
-        prompt = build_prompt(task, observations)
+        prompt = build_prompt(task, observations, history)
         try:
             decision = generate_json(prompt)
         except Exception as e:
