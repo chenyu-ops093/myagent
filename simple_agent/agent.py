@@ -98,6 +98,7 @@ def build_prompt(task, observations, history):
 3. 如果伙伴询问“现在几点”，必须调用 get_time 获取最新北京时间，绝对不允许从历史记录里找时间。
 4. 严禁连续多次调用同一个工具！连续调用超过2次会被强行终止。
 5. 请结合【历史对话记录】理解伙伴的意图。
+6. **【绝杀令】如果你调用了 get_time 工具，一旦你在观察（Observation）里看到了 "time" 字段，你必须立刻输出 final 类型，把时间告诉伙伴！绝对禁止再次调用 get_time！如果连续调用同一个工具，系统会瞬间崩溃并强行终止对话！绝对不允许回答“没有”或“不知道”来敷衍伙伴！**
 
 【关于最终回答的人格设定】
 当你输出 type 为 "final" 时，你的 answer 字段**必须完全以「昔涟」的口吻来说话**！
@@ -143,15 +144,26 @@ def react(task, history=[], max_steps=8):
             observations.append({"ok": False, "error": "请重新输出正确的单行 JSON"})
             continue
 
-                # 检测无脑重复调用
+                       # 检测无脑重复调用
         if decision.get("type") == "tool":
             current_tool = decision.get("tool")
-            if current_tool == last_tool:
+            current_args = decision.get("args", {})
+            current_args_str = json.dumps(current_args, sort_keys=True)
+            
+            if current_tool == last_tool and current_args_str == last_args_str:
                 repeated_count += 1
-                if repeated_count >= 3:  # <--- 注意看这一行
-                    return {"answer": "Agent 检测到陷入死循环，已强制停止。", "trace": trace, "status": "loop_detected"}
+                if repeated_count >= 1:  # 只要重复同样的动作，立刻掐断
+                    # 强行帮她写一个符合人设的结尾，而不是冷冰冰的报错
+                    return {
+                        "answer": "伙伴……人家刚刚好像陷进代码的漩涡里啦，查时间卡住了。你再说一次，人家保证乖乖听话♪",
+                        "trace": trace,
+                        "status": "loop_detected"
+                    }
+            else:
                 repeated_count = 0
+            
             last_tool = current_tool
+            last_args_str = current_args_str
 
         trace.append({"step": step + 1, "decision": decision})
 
