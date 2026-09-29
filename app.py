@@ -2,9 +2,15 @@ import streamlit as st
 import json
 from simple_agent.agent import react, MODEL
 
-st.set_page_config(page_title="与昔涟的频道", page_icon="🍑")
-st.title("🍑 昔涟的专属频道")
-st.markdown("当前使用的模型：`" + MODEL + "` —— *“你答应过要健健康康地等待重逢♪”*")
+# 如果图片后缀是 .jpg，就把下面的 logo.png 改成 logo.jpg
+st.set_page_config(page_title="与昔涟的频道", page_icon="logo.png")
+
+# 居中显示一张小图片（宽度设为100像素左右，自己调整）
+st.image("logo.png", width=120)
+
+# 然后再显示标题（去掉桃子emoji，因为图片已经代替了它）
+st.title("昔涟的专属频道")
+st.markdown("当前使用的模型：`" + MODEL + "` —— *“你答应过会等待着我们的重逢♪”*")
 
 # 1. 定义双方头像 (你的图片和昔涟的图片)
 USER_AVATAR = "user.png"
