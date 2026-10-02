@@ -151,8 +151,6 @@ def generate_xilian_reply(task, observations, history):
 def react(task, history=[], max_steps=8):
     trace = []
     observations = []
-    last_tool = None
-    repeated_count = 0
 
     for step in range(max_steps):
         prompt = build_prompt(task, observations, history)
@@ -160,56 +158,41 @@ def react(task, history=[], max_steps=8):
             decision = generate_json(prompt)
         except Exception as e:
             print(f"❌ 解析失败: {e}")
-            observations.append({"ok": False, "error": "请重新输出正确的单行 JSON"})
-            continue
-
-                              # 检测无脑重复调用
-        if decision.get("type") == "tool":
-            current_tool = decision.get("tool")
-            current_args = decision.get("args", {})
-            current_args_str = json.dumps(current_args, sort_keys=True)
+            break # 解析失败，直接跳出循环
             
-            if current_tool == last_tool and current_args_str == last_args_str:
-                repeated_count += 1
-                if repeated_count >= 2:
-                    # 不强行杀死对话，而是给她一次重新回答的机会
-                    observations.append({"ok": False, "error": "你调用了错误的工具，或者重复调用了！请重新思考，如果是算数请用 calculator，并直接给出 final 回答！"})
-                    last_tool = None 
-                    repeated_count = 0
-                    continue
-            else:
-                repeated_count = 0
-                
-            last_tool = current_tool
-            last_args_str = current_args_str
         trace.append({"step": step + 1, "decision": decision})
 
-        if decision.get("type") == "final":
-            # 她决定结束循环了，但此时 answer 可能是干巴巴的 JSON
-            # 我们发动“昔涟口吻生成器”，让她重新说一句符合人设的话！
-            print("✨ 正在生成昔涟的专属回复...")
-            final_answer = generate_xilian_reply(task, observations, history)
-            return {"answer": final_answer, "trace": trace, "status": "completed"}
+        # 如果她决定调用工具
+        if decision.get("type") == "tool":
+            tool_name = decision.get("tool")
+            args = decision.get("args", {})
 
-        tool_name = decision.get("tool")
-        args = decision.get("args", {})
+            if tool_name not in TOOLS:
+                obs = {"ok": False, "error": "unknown_tool"}
+            else:
+                try:
+                    print(f"🔧 执行工具: {tool_name}({args})")
+                    obs = TOOLS[tool_name]["fn"](**args)
+                except Exception as e:
+                    obs = {"ok": False, "error": str(e)}
 
-        if tool_name not in TOOLS:
-            obs = {"ok": False, "error": "unknown_tool", "tool": tool_name}
-        else:
-            try:
-                print(f"🔧 执行工具: {tool_name}({args})")
-                obs = TOOLS[tool_name]["fn"](**args)
-            except Exception as e:
-                obs = {"ok": False, "error": type(e).__name__, "message": str(e)}
+            observations.append(obs)
+            trace.append({"step": step + 1, "tool": tool_name, "observation": obs})
+            
+            # 【核心修改】！拿到工具结果后，立刻跳出循环！
+            # 把收尾的工作，全权交给下面的“昔涟口吻生成器”，不再让她写 JSON！
+            break 
+            
+        # 如果她决定直接结束（比如日常聊天）
+        elif decision.get("type") == "final":
+            break
 
-        observations.append(obs)
-        trace.append({"step": step + 1, "tool": tool_name, "args": args, "observation": obs})
-
-    return {"answer": None, "trace": trace, "status": "max_steps_reached"}
-
-if __name__ == "__main__":
-    task = "现在几点？帮我算一下 (25 * 4 + 10) / 2 等于多少，另外把 data 文件夹下的 test.txt 读出来。"
-    result = react(task)
-    print("\n" + "="*30 + " 最终结果 " + "="*30)
-    print(json.dumps(result, ensure_ascii=False, indent=2))
+    # 循环结束，统一用“昔涟口吻生成器”来生成最终回答
+    print("✨ 正在让昔涟组织语言...")
+    final_answer = generate_xilian_reply(task, observations, history)
+    
+    return {
+        "answer": final_answer, 
+        "trace": trace, 
+        "status": "completed"
+    }
