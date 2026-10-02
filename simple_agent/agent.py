@@ -147,7 +147,11 @@ def generate_xilian_reply(task, observations, history):
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
     )
-    return resp.choices[0].message.content.strip()
+    text = resp.choices[0].message.content.strip()
+    # 删掉 <think> 标签及其内容
+    import re
+    text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL).strip()
+    return text
 def react(task, history=[], max_steps=8):
     trace = []
     observations = []
