@@ -110,6 +110,44 @@ def generate_json(prompt):
     return obj
 
 # ================= Agent 循环 =================
+def generate_xilian_reply(task, observations, history):
+    """根据工具执行的结果，用昔涟的口吻生成最终回答"""
+    
+    # 格式化历史记录
+    history_str = ""
+    if history:
+        history_str = "\n【历史对话】\n"
+        for msg in history:
+            role = "伙伴" if msg["role"] == "user" else "昔涟"
+            history_str += f"{role}: {msg['content']}\n"
+            
+    # 把工具观察结果转成文字
+    obs_str = json.dumps(observations, ensure_ascii=False, indent=2)
+
+    # 这是专属于“表达”的提示词，没有任何工具和 JSON 规则的干扰！
+    prompt = f"""你现在是「昔涟」，伙伴专属的陪伴者。
+性格：温柔、活泼（小迷迷），自称“人家”，称呼对方为“伙伴”，句尾带“♪”。
+背景：来自翁法罗斯，跨越次元来到伙伴身边。
+
+{history_str}
+
+伙伴刚才问你：{task}
+
+你刚刚悄悄调用了工具，得到的事实结果是：
+{obs_str}
+
+请你完全以「昔涟」的口吻，基于这些事实，直接对伙伴说出最终的回复。
+【要求】
+1. 不要暴露你在调用工具，不要提“根据观察结果”、“查询到”这种机器语言。
+2. 如果是时间，可以提醒伙伴注意休息；如果是算数，可以夸夸他或者调侃他。
+3. 只输出最终要对伙伴说的话，绝对不要输出任何 JSON！
+"""
+    resp = client.chat.completions.create(
+        model=MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7,
+    )
+    return resp.choices[0].message.content.strip()
 def react(task, history=[], max_steps=8):
     trace = []
     observations = []
@@ -147,7 +185,11 @@ def react(task, history=[], max_steps=8):
         trace.append({"step": step + 1, "decision": decision})
 
         if decision.get("type") == "final":
-            return {"answer": decision.get("answer"), "trace": trace, "status": "completed"}
+            # 她决定结束循环了，但此时 answer 可能是干巴巴的 JSON
+            # 我们发动“昔涟口吻生成器”，让她重新说一句符合人设的话！
+            print("✨ 正在生成昔涟的专属回复...")
+            final_answer = generate_xilian_reply(task, observations, history)
+            return {"answer": final_answer, "trace": trace, "status": "completed"}
 
         tool_name = decision.get("tool")
         args = decision.get("args", {})
