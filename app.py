@@ -40,11 +40,18 @@ if prompt := st.chat_input("请输入你的问题（例如：现在几点？帮�
             history = st.session_state.messages[-4:-1]
             
             # 这里调用你写好的 react 函数
+                        # 调用 Agent
             result = react(prompt, history=history)
             
-            # 显示最终回答
-            answer = result["answer"]
-            st.markdown(answer)
+            # 【核心修改】使用 st.write_stream 来消费生成器（它会自动渲染打字机效果）
+            answer = st.write_stream(result["answer_stream"])
+            
+            # 把完整的回答存入历史记录
+            st.session_state.messages.append({"role": "assistant", "content": answer})
+            
+            # 折叠显示 Trace（保持不变）
+            with st.expander("🔍 查看本次执行轨迹 (Trace)"):
+                st.json(result["trace"])
             st.session_state.messages.append({"role": "assistant", "content": answer})
             
             # 5. 折叠显示 Trace（保持工程化调试）

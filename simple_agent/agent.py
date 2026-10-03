@@ -111,7 +111,7 @@ def generate_json(prompt):
 
 # ================= Agent 循环 =================
 def generate_xilian_reply(task, observations, history):
-    """根据工具执行的结果，用昔涟的口吻生成最终回答"""
+    """根据工具执行的结果，用昔涟的口吻流式生成最终回答"""
     
     # 格式化历史记录
     history_str = ""
@@ -142,16 +142,19 @@ def generate_xilian_reply(task, observations, history):
 2. 如果是时间，可以提醒伙伴注意休息；如果是算数，可以夸夸他或者调侃他。
 3. 只输出最终要对伙伴说的话，绝对不要输出任何 JSON！
 """
+    # 注意：这里加上了 stream=True
     resp = client.chat.completions.create(
         model=MODEL,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
+        stream=True  # <--- 开启流式输出
     )
-    text = resp.choices[0].message.content.strip()
-    # 删掉 <think> 标签及其内容
-    import re
-    text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL).strip()
-    return text
+    
+    # 一边接收数据，一边“吐”出来
+    for chunk in resp:
+        # 过滤掉空内容，防止报错
+        if chunk.choices and chunk.choices[0].delta.content:
+            yield chunk.choices[0].delta.content
 def react(task, history=[], max_steps=8):
     trace = []
     observations = []
@@ -196,7 +199,7 @@ def react(task, history=[], max_steps=8):
     final_answer = generate_xilian_reply(task, observations, history)
     
     return {
-        "answer": final_answer, 
+        "answer_stream": generate_xilian_reply(task, observations, history), # 注意这里是 answer_stream
         "trace": trace, 
         "status": "completed"
     }
