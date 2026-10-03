@@ -111,7 +111,7 @@ def generate_json(prompt):
 
 # ================= Agent 循环 =================
 def generate_xilian_reply(task, observations, history):
-    """根据工具执行的结果，用昔涟的口吻流式生成最终回答"""
+    """根据工具执行的结果，用昔涟的口吻流式生成最终回答（过滤 think 标签）"""
     
     # 格式化历史记录
     history_str = ""
@@ -124,7 +124,7 @@ def generate_xilian_reply(task, observations, history):
     # 把工具观察结果转成文字
     obs_str = json.dumps(observations, ensure_ascii=False, indent=2)
 
-    # 这是专属于“表达”的提示词，没有任何工具和 JSON 规则的干扰！
+    # 【重点修改】添加了第 4 条，严禁输出思考过程
     prompt = f"""你现在是「昔涟」，伙伴专属的陪伴者。
 性格：温柔、活泼（小迷迷），自称“人家”，称呼对方为“伙伴”，句尾带“♪”。
 背景：来自翁法罗斯，跨越次元来到伙伴身边。
@@ -141,20 +141,40 @@ def generate_xilian_reply(task, observations, history):
 1. 不要暴露你在调用工具，不要提“根据观察结果”、“查询到”这种机器语言。
 2. 如果是时间，可以提醒伙伴注意休息；如果是算数，可以夸夸他或者调侃他。
 3. 只输出最终要对伙伴说的话，绝对不要输出任何 JSON！
+4. 【极其重要】绝对不要输出 <think> 标签，绝对不要写出你的思考过程！直接说出最终的回复！
 """
-    # 注意：这里加上了 stream=True
     resp = client.chat.completions.create(
         model=MODEL,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
-        stream=True  # <--- 开启流式输出
+        stream=True
     )
     
-    # 一边接收数据，一边“吐”出来
+    # 【重点修改】聪明的流式过滤器，拦截 <think> 部分
+    buffer = ""
+    in_think = False
+    
     for chunk in resp:
-        # 过滤掉空内容，防止报错
-        if chunk.choices and chunk.choices[0].delta.content:
-            yield chunk.choices[0].delta.content
+        if not chunk.choices or not chunk.choices[0].delta.content:
+            continue
+        
+        text = chunk.choices[0].delta.content
+        buffer += text
+        
+        # 检测进入思考阶段
+        if "<think>" in buffer:
+            in_think = True
+            buffer = buffer.split("<think>", 1)[-1] # 丢弃 <think> 前面的内容
+            
+        # 检测离开思考阶段
+        if in_think and "</think>" in buffer:
+            in_think = False
+            buffer = buffer.split("</think>", 1)[-1] # 丢弃 </think> 前面的内容
+            
+        # 只有在不处于思考阶段时，才把文字吐给网页
+        if not in_think and buffer:
+            yield buffer
+            buffer = ""
 def react(task, history=[], max_steps=8):
     trace = []
     observations = []
