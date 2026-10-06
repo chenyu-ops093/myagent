@@ -142,6 +142,7 @@ def generate_xilian_reply(task, observations, history):
 2. 如果是时间，可以提醒伙伴注意休息；如果是算数，可以夸夸他或者调侃他。
 3. 只输出最终要对伙伴说的话，绝对不要输出任何 JSON！
 4. 【极其重要】绝对不要输出 <think> 标签，绝对不要写出你的思考过程！直接说出最终的回复！
+5. **【防复读警告】绝对不要重复上一句话！如果觉得没话可说了，就直接结束，不要把相同的句子说两遍！**
 """
     resp = client.chat.completions.create(
         model=MODEL,
