@@ -1,4 +1,5 @@
 import os
+import requests 
 from dotenv import load_dotenv
 load_dotenv()
 import sys
@@ -40,8 +41,74 @@ def read_file(filename: str):
         return {"ok": True, "filename": filename, "content": content[:2000]}
     except Exception as e:
         return {"ok": False, "error": str(e)}
+def search_web(query: str):
+    """使用博查API搜索最新信息"""
+    api_key = os.getenv("BOCHA_API_KEY")
+    if not api_key:
+        return {"ok": False, "error": "没有配置博查API Key"}
+    
+    url = "https://api.bochaai.com/v1/web-search"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "query": query,
+        "summary": True,
+        "count": 3
+    }
+    try:
+        resp = requests.post(url, headers=headers, json=payload, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+        # 提取搜索结果
+        results = []
+        if "data" in data and "webPages" in data["data"]:
+            for item in data["data"]["webPages"]["value"][:3]:
+                results.append({
+                    "title": item.get("name"),
+                    "url": item.get("url"),
+                    "summary": item.get("summary")
+                })
+        return {"ok": True, "results": results}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
+
+def search_music(query: str):
+    """搜索音乐（通过B站搜索，返回可播放的链接）"""
+    # 这是一个非常简单的B站搜索示例，实际可以换成更复杂的音乐API
+    url = f"https://api.bilibili.com/x/web-interface/search/type?search_type=video&keyword={query}+音乐"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    }
+    try:
+        resp = requests.get(url, headers=headers, timeout=10)
+        data = resp.json()
+        if data.get("code") == 0 and data.get("data") and data["data"].get("result"):
+            # 取第一个搜索结果
+            first = data["data"]["result"][0]
+            # 去掉HTML标签
+            title = first["title"].replace('<em class="keyword">', '').replace('</em>', '')
+            return {
+                "ok": True, 
+                "music_info": f"找到了！为你搜到了《{title}》，快点开听听看吧♪", 
+                "url": f"https://www.bilibili.com/video/{first['bvid']}"
+            }
+        return {"ok": False, "error": "没有搜到相关的音乐，伙伴换个关键词试试吧♪"}
+    except Exception as e:
+        return {"ok": False, "error": f"搜索音乐失败: {str(e)}"}
 TOOLS = {
+        "search_web": {
+        "fn": search_web,
+        "desc": "联网搜索最新资讯、新闻、知识。参数 query 是搜索关键词。",
+        "args": {"query": "string"},
+    },
+    "search_music": {
+        "fn": search_music,
+        "desc": "搜索歌曲或音乐。参数 query 是歌名或歌手。",
+        "args": {"query": "string"},
+    },
     "get_time": {"fn": get_time, "desc": "获取当前时间。", "args": {}},
     "calculator": {"fn": calculator, "desc": "计算数学表达式。参数 expression。", "args": {"expression": "string"}},
     "read_file": {"fn": read_file, "desc": "读取 data 目录下的文件。参数 filename。", "args": {"filename": "string"}},
