@@ -2,6 +2,7 @@ import streamlit as st
 import json
 import os
 from simple_agent.agent import react, MODEL
+from memory_rag import rag
 
 MEMORY_FILE = "chat_history.json"
 
@@ -48,35 +49,25 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"], avatar=avatar):
         st.markdown(message["content"])
 
-# 4. 接收用户输入
+# 接收用户输入
 if prompt := st.chat_input("请输入你的问题（例如：现在几点？帮我算一下 23*17+9）"):
     # 显示用户消息
     st.session_state.messages.append({"role": "user", "content": prompt})
-    save_memory(st.session_state.messages)
-    with st.chat_message("user", avatar=USER_AVATAR):  # 这里替换成了你的头像
-        st.markdown(prompt)
-
-    # 调用 Agent，并把历史记录传过去
-    with st.chat_message("assistant", avatar=AI_AVATAR): # 这里替换成了昔涟的头像
+        # 调用 Agent
+    with st.chat_message("assistant", avatar=AI_AVATAR):
         with st.spinner("昔涟正在思考..."):
-            # 把之前的对话记录（不含当前这句）作为 history 传入
             history = st.session_state.messages[-4:-1]
-            
-            # 这里调用你写好的 react 函数
-                        # 调用 Agent
             result = react(prompt, history=history)
-            
-            # 【核心修改】使用 st.write_stream 来消费生成器（它会自动渲染打字机效果）
+
+            # 流式输出，只写一次
             answer = st.write_stream(result["answer_stream"])
-            
-            # 把完整的回答存入历史记录
+
+            # 【新增这一行】把这一轮对话存进 RAG 图书馆（长期记忆）
+            rag.add_memory(prompt, answer)
+
+            # 保存本地 JSON 记忆
             st.session_state.messages.append({"role": "assistant", "content": answer})
             save_memory(st.session_state.messages)
-            # 折叠显示 Trace（保持不变）
-            with st.expander("🔍 查看本次执行轨迹 (Trace)"):
-                st.json(result["trace"])
-            st.session_state.messages.append({"role": "assistant", "content": answer})
-            save_memory(st.session_state.messages)
-            # 5. 折叠显示 Trace（保持工程化调试）
+
             with st.expander("🔍 查看本次执行轨迹 (Trace)"):
                 st.json(result["trace"])

@@ -110,25 +110,31 @@ def generate_json(prompt):
     return obj
 
 # ================= Agent 循环 =================
+from memory_rag import rag  # 导入刚写好的图书馆管理员
+
 def generate_xilian_reply(task, observations, history):
-    """根据工具执行的结果，用昔涟的口吻流式生成最终回答（过滤 think 标签）"""
+    """根据工具执行的结果，用昔涟的口吻流式生成最终回答（含RAG长期记忆）"""
     
-    # 格式化历史记录
+    # 1. 格式化短期历史记录
     history_str = ""
     if history:
-        history_str = "\n【历史对话】\n"
+        history_str = "\n【最近的对话】\n"
         for msg in history:
             role = "伙伴" if msg["role"] == "user" else "昔涟"
             history_str += f"{role}: {msg['content']}\n"
             
-    # 把工具观察结果转成文字
+    # 2. 把工具观察结果转成文字
     obs_str = json.dumps(observations, ensure_ascii=False, indent=2)
 
-    # 【重点修改】添加了第 4 条，严禁输出思考过程
+    # 3. 【核心加入】用 RAG 检索跟当前问题相关的长期记忆（从日记本里翻书）
+    retrieved_memory = rag.search_memory(task, n_results=3)
+
+    # 4. 组装提示词
     prompt = f"""你现在是「昔涟」，伙伴专属的陪伴者。
 性格：温柔、活泼（小迷迷），自称“人家”，称呼对方为“伙伴”，句尾带“♪”。
 背景：来自翁法罗斯，跨越次元来到伙伴身边。
 
+{retrieved_memory}
 {history_str}
 
 伙伴刚才问你：{task}
@@ -137,13 +143,14 @@ def generate_xilian_reply(task, observations, history):
 {obs_str}
 
 请你完全以「昔涟」的口吻，基于这些事实，直接对伙伴说出最终的回复。
-【要求】
-1. 不要暴露你在调用工具，不要提“根据观察结果”、“查询到”这种机器语言。
+【绝对底线要求】
+1. 不要暴露你在调用工具，不要提“根据观察结果”这种机器语言。
 2. 如果是时间，可以提醒伙伴注意休息；如果是算数，可以夸夸他或者调侃他。
 3. 只输出最终要对伙伴说的话，绝对不要输出任何 JSON！
-4. 【极其重要】绝对不要输出 <think> 标签，绝对不要写出你的思考过程！直接说出最终的回复！
-5. **【防复读警告】绝对不要重复上一句话！如果觉得没话可说了，就直接结束，不要把相同的句子说两遍！**
+4. **【终极防复读】上面提供的【历史对话】和【记忆碎片】仅供你理解上下文，绝对不要把里面的原话再抄一遍！只需要回答伙伴刚才问的最新问题！**
 """
+
+    # 5. 流式调用大模型
     resp = client.chat.completions.create(
         model=MODEL,
         messages=[{"role": "user", "content": prompt}],
@@ -151,7 +158,7 @@ def generate_xilian_reply(task, observations, history):
         stream=True
     )
     
-    # 【重点修改】聪明的流式过滤器，拦截 <think> 部分
+    # 6. 聪明地过滤掉 <think> 标签，并一句一句吐出来
     buffer = ""
     in_think = False
     
@@ -162,17 +169,14 @@ def generate_xilian_reply(task, observations, history):
         text = chunk.choices[0].delta.content
         buffer += text
         
-        # 检测进入思考阶段
         if "<think>" in buffer:
             in_think = True
-            buffer = buffer.split("<think>", 1)[-1] # 丢弃 <think> 前面的内容
+            buffer = buffer.split("<think>", 1)[-1]
             
-        # 检测离开思考阶段
         if in_think and "</think>" in buffer:
             in_think = False
-            buffer = buffer.split("</think>", 1)[-1] # 丢弃 </think> 前面的内容
+            buffer = buffer.split("</think>", 1)[-1]
             
-        # 只有在不处于思考阶段时，才把文字吐给网页
         if not in_think and buffer:
             yield buffer
             buffer = ""
