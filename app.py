@@ -50,7 +50,13 @@ def play_voice(text, message_index):
     payload = {
         "model": "speech-2.8-hd",
         "text": text,
-        "voice_setting": {"voice_id": voice_id, "speed": 1.0, "vol": 1.0, "pitch": 0},
+                "voice_setting": {
+            "voice_id": voice_id,
+            "speed": 0.9,    # 【核心修改】语速从 1.0 降到 0.9，让她慢条斯理，显得更温柔
+            "vol": 1.0,
+            "pitch": -2,     # 【核心修改】音调从 0 降到 -2，这样声音就不会很尖，会变得软糯
+            "emotion": "happy" # 【新增】要求她情绪开心（如果 MiniMax 模型支持的话，如果不支持也不会报错）
+        },
         "audio_setting": {"sample_rate": 32000, "bitrate": 128000, "format": "mp3"}
     }
     
