@@ -2,6 +2,7 @@ import streamlit as st
 import json
 import requests
 import os
+import re 
 from simple_agent.agent import react, MODEL
 from dotenv import load_dotenv 
 from memory_rag import rag
@@ -39,6 +40,17 @@ def load_memory():
     return []
 def play_voice(text, message_index):
     """调用 MiniMax TTS API 生成语音文件，并返回路径"""
+     # 1. 把 [文字](链接) 格式，只保留“文字”
+    text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
+    # 2. 把裸的 http/https 链接直接删掉
+    text = re.sub(r'https?://\S+', '', text)
+    # 3. 清理多余的空格和换行
+    text = text.strip()
+    
+    # 如果过滤完发现没有文字了（全是链接），就别让它念了
+    if not text:
+        return None
+    
     api_key = os.getenv("MINIMAX_API_KEY")
     voice_id = os.getenv("MINIMAX_VOICE_ID", "XilianVoice01")
     
@@ -52,14 +64,14 @@ def play_voice(text, message_index):
         "text": text,
                 "voice_setting": {
             "voice_id": voice_id,
-            "speed": 0.9,    # 【核心修改】语速从 1.0 降到 0.9，让她慢条斯理，显得更温柔
+            "speed": 0.97,    # 【核心修改】语速从 1.0 降到 0.9，让她慢条斯理，显得更温柔
             "vol": 1.0,
-            "pitch": -1,     # 【核心修改】音调从 0 降到 -1，这样声音就不会很尖，会变得软糯
+            "pitch": 0,     # 【核心修改】音调从 0 降到 -1，这样声音就不会很尖，会变得软糯
             "emotion": "happy" # 【新增】要求她情绪开心（如果 MiniMax 模型支持的话，如果不支持也不会报错）
         },
         "audio_setting": {"sample_rate": 32000, "bitrate": 128000, "format": "mp3"}
     }
-    
+   
     audio_dir = "audio_cache"
     os.makedirs(audio_dir, exist_ok=True)
     file_path = os.path.join(audio_dir, f"reply_{message_index}.mp3")

@@ -1,3 +1,7 @@
 .env
 *.pyc
 *.code-workspace
+audio_cache/
+chroma_db/
+chat_history.json
+.env

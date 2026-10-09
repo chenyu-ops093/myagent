@@ -25,7 +25,25 @@ class MemoryRAG:
             metadatas=[{"type": "chat"}],
             ids=[doc_id]
         )
-
+    def search_lore(self, query, n_results=3):
+        """去故事书架里翻找相关的设定"""
+        # 获取专门的设定集合
+        lore_collection = self.client.get_or_create_collection(name="xilian_lore")
+        if lore_collection.count() == 0:
+            return ""
+            
+        results = lore_collection.query(
+            query_texts=[query],
+            n_results=n_results
+        )
+        
+        if not results["documents"] or not results["documents"][0]:
+            return ""
+            
+        lore_str = "\n【关于昔涟的回忆与故事设定】\n"
+        for doc in results["documents"][0]:
+            lore_str += f"{doc}\n---\n"
+        return lore_str
     def search_memory(self, query, n_results=3):
         """根据问题，去图书馆找相关的 3 页书"""
         # 如果图书馆是空的，直接返回空

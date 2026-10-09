@@ -76,28 +76,21 @@ def search_web(query: str):
 
 
 def search_music(query: str):
-    """搜索音乐（通过B站搜索，返回可播放的链接）"""
-    # 这是一个非常简单的B站搜索示例，实际可以换成更复杂的音乐API
-    url = f"https://api.bilibili.com/x/web-interface/search/type?search_type=video&keyword={query}+音乐"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    """搜索音乐：直接生成各大平台的搜索链接，保证 100% 成功"""
+    # 对关键词进行 URL 编码
+    import urllib.parse
+    encoded_query = urllib.parse.quote(query)
+    
+    # 生成网易云和B站的搜索链接
+    netease_url = f"https://music.163.com/#/search/m/?s={encoded_query}&type=1"
+    bilibili_url = f"https://search.bilibili.com/all?keyword={encoded_query}"
+    
+    return {
+        "ok": True,
+        "message": f"伙伴，人家帮你准备好搜索链接啦♪ 想听{query}的话，点开下面的链接就能找到啦！",
+        "netease_link": netease_url,
+        "bilibili_link": bilibili_url
     }
-    try:
-        resp = requests.get(url, headers=headers, timeout=10)
-        data = resp.json()
-        if data.get("code") == 0 and data.get("data") and data["data"].get("result"):
-            # 取第一个搜索结果
-            first = data["data"]["result"][0]
-            # 去掉HTML标签
-            title = first["title"].replace('<em class="keyword">', '').replace('</em>', '')
-            return {
-                "ok": True, 
-                "music_info": f"找到了！为你搜到了《{title}》，快点开听听看吧♪", 
-                "url": f"https://www.bilibili.com/video/{first['bvid']}"
-            }
-        return {"ok": False, "error": "没有搜到相关的音乐，伙伴换个关键词试试吧♪"}
-    except Exception as e:
-        return {"ok": False, "error": f"搜索音乐失败: {str(e)}"}
 TOOLS = {
         "search_web": {
         "fn": search_web,
@@ -151,7 +144,8 @@ def build_prompt(task, observations, history):
 5. 【错误示范】：
    "当前时间是2026-09-29 23:00:00。"
    "根据历史观察记录，现在时间是..."
-
+6. **【关于音乐搜索】如果工具返回了 netease_link 或 bilibili_link，不要直接用文字念出这段网址！请用 Markdown 格式把链接包装成文字，例如：“[点人家听网易云 ♪](链接地址)”，这样伙伴点击就可以直接跳转啦！**
+   6. **【情绪基调】每次回复都要保持开心、温和、治愈的语气！多用“呀”、“呢”、“哦”这种软乎乎的尾音，保持微笑的感觉，绝对不要用冷淡或低落的语气！**
 {history_str}
 伙伴说：{task}
 
@@ -196,6 +190,9 @@ def generate_xilian_reply(task, observations, history):
 
     # 3. 【核心加入】用 RAG 检索跟当前问题相关的长期记忆（从日记本里翻书）
     retrieved_memory = rag.search_memory(task, n_results=3)
+    # 【新增】：去专属书架里寻找与当前话题相关的故事设定
+    retrieved_lore = rag.search_lore(task, n_results=2) 
+   
 
     # 4. 组装提示词
     prompt = f"""你现在是「昔涟」，伙伴专属的陪伴者。
@@ -203,6 +200,7 @@ def generate_xilian_reply(task, observations, history):
 背景：来自翁法罗斯，跨越次元来到伙伴身边。
 
 {retrieved_memory}
+{retrieved_lore}
 {history_str}
 
 伙伴刚才问你：{task}
@@ -216,6 +214,11 @@ def generate_xilian_reply(task, observations, history):
 2. 如果是时间，可以提醒伙伴注意休息；如果是算数，可以夸夸他或者调侃他。
 3. 只输出最终要对伙伴说的话，绝对不要输出任何 JSON！
 4. **【终极防复读】上面提供的【历史对话】和【记忆碎片】仅供你理解上下文，绝对不要把里面的原话再抄一遍！只需要回答伙伴刚才问的最新问题！**
+5. **【关于故事设定】如果检索到了【关于昔涟的回忆与故事设定】，请用自然、温和的口吻，把这些设定当成你自己的真实记忆讲给伙伴听，不要像是在朗读资料。**
+5. **【极致精简】像日常微信聊天一样简短自然，每次回复只回 1-2 句话，绝对不要长篇大论！**
+6. **【拒绝客服感】不要总是给出长篇的建议或者过度关心，像朋友一样简单问候或者调侃一句就好。**
+7. **【保留核心】遇到时间、天气或搜索等工具结果，只需用一句话顺带提一下即可，不要展开长篇大论。**
+8. **【情绪自然】保持温和治愈，可以开心，也可以有一点点慵懒或者俏皮，像真实的女孩一样。**
 """
 
     # 5. 流式调用大模型
