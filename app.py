@@ -1,6 +1,7 @@
 import streamlit as st
 import json
 import requests
+import base64
 import os
 import re 
 from simple_agent.agent import react, MODEL
@@ -17,15 +18,151 @@ st.image("logo.png", width=120)
 
 # 然后再显示标题（去掉桃子emoji，因为图片已经代替了它）
 st.title("昔涟的专属频道")
+# ================= 界面美化 CSS =================
+import base64 # 如果文件最上面还没有加，记得加这一行
+
+# 读取本地背景图并转成 Base64
+import base64
+import os
+
+# 安全读取背景图（加上了判断文件是否存在，绝不会崩溃）
+def get_base64_image(image_path):
+    if not os.path.exists(image_path):
+        return None
+    with open(image_path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
+# 这里一定要确认你的图片名字和文件夹里的完全一样（比如 background.png）
+bg_image = get_base64_image("background.png")
+
+if bg_image:
+    # 如果有背景图，用背景图
+    bg_style = f"background-image: url('data:image/png;base64,{bg_image}'); background-size: cover; background-position: center; background-attachment: fixed;"
+else:
+    # 如果找不到背景图，自动降级为粉紫渐变，保证不报错
+    bg_style = "background: linear-gradient(135deg, #fff0f5 0%, #fce4ec 50%, #f3e5f5 100%);"
+
+st.markdown(f"""
+<style>
+.stApp {{
+    {bg_style}
+    background-blend-mode: overlay;
+    background-color: rgba(255, 240, 245, 0.4);
+}}
+/* ... 下面保留你的毛玻璃聊天框、粉色输入框、侧边栏等 CSS ... */
+</style>
+""", unsafe_allow_html=True)
+import base64
+import os
+
+# 1. 定义读取图片的函数
+def get_base64_image(image_path):
+    if not os.path.exists(image_path):
+        return None
+    with open(image_path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
+# 2. 读取背景图（注意：确认你文件夹里的图片是 background.png 还是 .jpg！）
+bg_image = get_base64_image("background.png") 
+
+if bg_image:
+    bg_css = f"background-image: url('data:image/png;base64,{bg_image}');"
+else:
+    # 如果找不到图，自动变回粉色渐变，保证不崩
+    bg_css = "background: linear-gradient(135deg, #fff0f5 0%, #fce4ec 50%, #f3e5f5 100%);"
+
+# 3. 注入 CSS（注意这里加上了 f 前缀！）
+st.markdown(f"""
+<style>
+/* 隐藏默认工具栏 */
+#MainMenu {{visibility: hidden;}}
+footer {{visibility: hidden;}}
+header {{visibility: hidden;}}
+
+/* 设置专属背景图 */
+.stApp {{
+    {bg_css}
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-blend-mode: overlay;
+    background-color: rgba(255, 240, 245, 0.4);
+}}
+
+/* 聊天框毛玻璃 */
+.stChatMessage {{
+    background-color: rgba(255, 255, 255, 0.75) !important;
+    backdrop-filter: blur(15px);
+    border-radius: 20px;
+    padding: 15px 20px;
+    margin: 10px 0;
+    box-shadow: 0 6px 12px rgba(255, 182, 193, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+}}
+
+/* 可爱的粉色输入框 */
+[data-testid="stChatInput"] textarea {{
+    background: linear-gradient(135deg, #fff0f5 0%, #ffffff 100%) !important;
+    border: 2px solid #ffb6c1 !important;
+    border-radius: 30px !important;
+    box-shadow: 0 4px 15px rgba(255, 182, 193, 0.4) !important;
+    color: #555 !important;
+    padding: 12px 24px !important;
+}}
+[data-testid="stChatInput"] textarea::placeholder {{
+    color: #ff9cac !important;
+}}
+
+/* 侧边栏毛玻璃和按钮 */
+section[data-testid="stSidebar"] {{
+    background-color: rgba(255, 255, 255, 0.5) !important;
+    backdrop-filter: blur(20px);
+    border-right: 1px solid rgba(255, 255, 255, 0.5);
+}}
+.stButton > button {{
+    background: linear-gradient(135deg, #ffb6c1, #ff9cac) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 20px !important;
+    box-shadow: 0 4px 10px rgba(255, 156, 172, 0.4) !important;
+    transition: all 0.3s ease !important;
+}}
+.stButton > button:hover {{
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 15px rgba(255, 156, 172, 0.6) !important;
+}}
+</style>
+""", unsafe_allow_html=True)
+
 st.markdown("当前使用的模型：`" + MODEL + "` —— *“你答应过会等待着我们的重逢♪”*")
+
 with st.sidebar:
-    st.markdown("### ⚙️ 系统设置")
-    if st.button("清空昔涟的记忆 🧹"):
-        st.session_state.messages = []
-        if os.path.exists(MEMORY_FILE):
-            os.remove(MEMORY_FILE)
-        st.rerun()
-# 1. 定义双方头像 (你的图片和昔涟的图片)
+    # 头像展示
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.image("logo.png", use_container_width=True)
+
+    # 高级感标题
+    st.markdown("""
+    <div style="text-align: center; margin-top: -10px; margin-bottom: 25px;">
+        <h2 translate="no" class="notranslate" style="color: #ff6b81; font-family: 'Georgia', serif; font-style: italic; font-weight: 600; letter-spacing: 1.5px; margin-bottom: 0;">Flawless EGO</h2>
+        <p translate="no" class="notranslate" style="color: #999; font-size: 12px; letter-spacing: 5px; margin-top: 5px; text-transform: uppercase;">C Y R E N E</p>
+        <hr style="border: 0; height: 1px; background: linear-gradient(to right, transparent, #ffb6c1, transparent); margin: 15px 0;">
+    </div>
+    """, unsafe_allow_html=True)
+
+    # 系统设置
+    with st.expander("⚙️ 系统设置"):
+        st.write("在这里管理昔涟的记忆哦~")
+        if st.button("🧹 清空昔涟的记忆", use_container_width=True):
+            st.session_state.messages = []
+            if os.path.exists(MEMORY_FILE):
+                os.remove(MEMORY_FILE)
+            st.rerun()
+    
+    st.markdown("<br><p style='text-align:center; color:#ff9cac; font-size:12px; font-style:italic;'>“曾许下心愿，等待你的出现 ♪”</p>", unsafe_allow_html=True)
+
+# 定义双方头像
 USER_AVATAR = "user.png"
 AI_AVATAR = "xilian.png"
 
@@ -110,16 +247,20 @@ for idx, message in enumerate(st.session_state.messages):
             if message.get("audio") and os.path.exists(message["audio"]):
                 st.audio(message["audio"], format="audio/mp3")
             else:
-                # 如果还没生成，就显示一个“点播”按钮
-                if st.button("🎵 让涟宝念给我听", key=f"tts_btn_{idx}"):
-                    with st.spinner("正在生成声音..."):
-                        audio_path = play_voice(message["content"], idx)
-                        if audio_path:
-                            message["audio"] = audio_path
-                            save_memory(st.session_state.messages)
-                            st.rerun()
-                        else:
-                            st.error("语音生成失败，请重试")
+                # 【核心修改】创建两列，让按钮跑到右边并变小
+                col1, col2 = st.columns([6, 1]) # 左边占 6 份空着，右边占 1 份放按钮
+                
+                with col2:
+                    # 用一个小图标代替长文字，鼠标悬停时会显示提示
+                    if st.button("🎵", key=f"tts_btn_{idx}", help="让小涟念给你听吧~"):
+                        with st.spinner("生成声音..."):
+                            audio_path = play_voice(message["content"], idx)
+                            if audio_path:
+                                message["audio"] = audio_path
+                                save_memory(st.session_state.messages)
+                                st.rerun()
+                            else:
+                                st.error("语音生成失败，请重试")
         
        
 
