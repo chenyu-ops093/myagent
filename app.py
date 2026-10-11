@@ -329,19 +329,19 @@ def play_voice(text, message_index):
     file_path = os.path.join(audio_dir, f"reply_{message_index}.mp3")
     
     try:
-        response = requests.post(url, json=payload, headers=headers, timeout=15)
+        response = requests.post(url, json=payload, headers=headers, timeout=60)
         response.raise_for_status()
         data = response.json()
         audio_hex = data.get("data", {}).get("audio")
         
         if audio_hex:
-            with open(file_path, "wb") as f:
-                f.write(bytes.fromhex(audio_hex))
-            return file_path
+            return bytes.fromhex(audio_hex)  # 直接返回音频字节流，不存文件！
         return None
     except Exception as e:
         print(f"❌ MiniMax TTS 语音生成失败: {e}")
+        st.error(f"云端TTS报错: {e}")  # <--- 加上这一句！让错误显示在网页上
         return None
+       
 
 def save_memory(messages):
     if IS_CLOUD:
@@ -373,12 +373,13 @@ for idx, message in enumerate(st.session_state.messages):
                     # 用一个小图标代替长文字，鼠标悬停时会显示提示
                     if st.button("🎵", key=f"tts_btn_{idx}", help="让小涟念给你听吧~"):
                         with st.spinner("生成声音..."):
-                            audio_path = play_voice(message["content"], idx)
-                            if audio_path:
-                                message["audio"] = audio_path
-                                save_memory(st.session_state.messages)
-                                st.rerun()
-                            else:
+                            audio_bytes = play_voice(message["content"], idx)
+if audio_bytes:
+    # 直接播放音频数据
+    st.audio(audio_bytes, format="audio/mp3")
+    # 因为现在没有文件路径了，不用再存 message["audio"] 了，直接刷新页面
+    st.rerun()
+else:
                                 st.error("小涟暂时不想说话呢，请稍后再试~")
         
        
