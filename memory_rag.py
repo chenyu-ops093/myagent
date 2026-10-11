@@ -11,6 +11,9 @@ class MemoryRAG:
         self.collection = self.client.get_or_create_collection(name="xilian_memory")
 
     def add_memory(self, user_text, ai_text):
+     if "mount/src" in os.getcwd(): # 判断云端
+        return # 云端直接跳过，防止跨用户污染
+    # ... 下面是你原来的代码，保持不变 ...
         """把一轮对话存进图书馆"""
         doc_id = str(hash(user_text + ai_text)) # 给这页书做个唯一编号
         content = f"伙伴：{user_text}\n昔涟：{ai_text}"

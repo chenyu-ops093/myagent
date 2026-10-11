@@ -1,3 +1,5 @@
+# 判断是不是在 Streamlit 云端运行
+IS_CLOUD = "mount/src" in os.getcwd() or "streamlit" in os.getenv("HOSTNAME", "").lower()
 import streamlit as st
 import os
 
@@ -281,6 +283,10 @@ AI_AVATAR = "xilian.png"
 
 
 def load_memory():
+    if IS_CLOUD:
+        return []  # 云端直接返回空记忆，绝对不读共享文件！
+    
+    # 下面是你原来的代码，保持不动
     if os.path.exists(MEMORY_FILE):
         with open(MEMORY_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -339,6 +345,10 @@ def play_voice(text, message_index):
         return None
 
 def save_memory(messages):
+    if IS_CLOUD:
+        return  # 云端直接返回，绝对不写入共享文件！
+        
+    # 下面是你原来的代码，保持不动
     with open(MEMORY_FILE, "w", encoding="utf-8") as f:
         json.dump(messages, f, ensure_ascii=False, indent=2)
 
