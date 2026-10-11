@@ -1,17 +1,66 @@
 import streamlit as st
+import os
+
+# ================= 简单密码锁 =================
+# 你可以随时改这个密码，改完重启即可
+SECRET_PASSWORD = "xilian1112" 
+
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    st.markdown("<h2 style='text-align:center; color:#ff6b81;'>🌸 昔涟</h2>", unsafe_allow_html=True)
+    password = st.text_input("请输入访问密码（非请勿入）：", type="password")
+    if st.button("进入", use_container_width=True):
+        if password == SECRET_PASSWORD:
+            st.session_state.authenticated = True
+            st.rerun()
+        else:
+            st.error("密码不对哦♪")
+    st.stop()
+# =============================================
+import streamlit as st
 import json
 import requests
 import base64
 import os
 import re 
 from simple_agent.agent import react, MODEL
-from dotenv import load_dotenv 
+from dotenv import load_dotenv
 from memory_rag import rag
 
 MEMORY_FILE = "chat_history.json"
 
 # 如果图片后缀是 .jpg，就把下面的 logo.png 改成 logo.jpg
 st.set_page_config(page_title="与昔涟的频道", page_icon="logo.png")
+import os
+
+# ================= API Key 守卫（开源必备） =================
+# 检查系统环境中是否有这两个必要的 Key
+#if not os.getenv("MINIMAX_API_KEY") or not os.getenv("BOCHA_API_KEY"):
+    #st.markdown("<h2 style='text-align:center; color:#ff6b81;'>🌸 欢迎来到这里</h2>", unsafe_allow_html=True)
+    #st.info("检测到您尚未配置 API Key。为了保证安全，请填入您自己的密钥（不会保存到硬盘，只留存在当前浏览器会话中）。")
+    
+    #col1, col2 = st.columns(2)
+    #with col1:
+        #minimax_key = st.text_input("1️⃣ MiniMax API Key（对话与语音必需）", type="password", placeholder="sk-...")
+    #with col2:
+        #bocha_key = st.text_input("2️⃣ 博查 API Key（联网搜索必需）", type="password", placeholder="sk-...")
+        
+    #if st.button("启动", use_container_width=True):
+        #if not minimax_key or not bocha_key:
+            #st.error("请把两个 Key 都填完整哦！")
+        #else:
+            # 将用户输入的 Key 注入到环境变量中（只在本次运行有效，绝对安全）
+            #os.environ["MINIMAX_API_KEY"] = minimax_key
+            #os.environ["BOCHA_API_KEY"] = bocha_key
+            # 同时注入到 session_state，防止页面刷新时丢失
+            #st.session_state["MINIMAX_API_KEY"] = minimax_key
+            #st.session_state["BOCHA_API_KEY"] = bocha_key
+            #st.rerun() # 重新运行，进入正常页面
+            
+    #st.stop() # 【核心】！如果没填 Key，页面就停在这里，后面的代码绝对不执行！
+# ==========================================================
 
 # 居中显示一张小图片（宽度设为100像素左右，自己调整）
 st.image("logo.png", width=120)
@@ -26,6 +75,8 @@ import base64
 import os
 
 # 安全读取背景图（加上了判断文件是否存在，绝不会崩溃）
+# 【核心修改】加上 @st.cache_data，让图片只在第一次运行时读取，永远缓存在内存里
+@st.cache_data(show_spinner=False)
 def get_base64_image(image_path):
     if not os.path.exists(image_path):
         return None
@@ -50,6 +101,57 @@ st.markdown(f"""
     background-color: rgba(255, 240, 245, 0.4);
 }}
 /* ... 下面保留你的毛玻璃聊天框、粉色输入框、侧边栏等 CSS ... */
+/* 8. 【最终完美版】聊天框靠左，输入框保持带底座的粉色毛玻璃 */
+
+/* 1. 【物理强拆】打破 Streamlit 页面居中限制，让整体靠左 */
+.block-container, [data-testid="stAppViewBlockContainer"] {{
+    max-width: 100% !important;
+    padding-left: 2rem !important;  /* 距离屏幕左侧留点空隙 */
+    padding-right: 2rem !important;
+    margin-left: 0 !important;      /* 强制靠左 */
+    margin-right: auto !important;
+}}
+
+/* 2. 【找回靠左】聊天记录像微信一样乖乖贴在左边 */
+.stChatMessage, [data-testid="stChatMessage"] {{
+    max-width: 900px !important;  
+    margin-left: 0 !important;    
+    margin-right: auto !important;
+    width: 100% !important; 
+}}
+
+/* ================= 最终极：粉色彻底覆盖白色 ================= */
+/* 1. 外层容器彻底透明，去掉所有内边距，不再露出任何白边 */
+[data-testid="stBottomBlockContainer"], 
+[data-testid="stBottom"] {{
+    max-width: 900px !important;  
+    margin: 0 auto 20px auto !important;    
+    background: transparent !important; /* 干掉外层白框 */
+    padding: 0 !important; /* 干掉内边距，防止把内层白框挤出来 */
+    border: none !important;
+    box-shadow: none !important;
+}}
+
+/* 2. 让内层容器（包着输入框的那层）变成粉色的胶囊本体 */
+[data-testid="stChatInputContainer"], 
+[data-testid="stChatInput"] {{
+    background: rgba(255, 255, 255, 0.6) !important; /* 胶囊底色调白一点保证看清字 */
+    border: 2px solid rgba(255, 182, 193, 0.9) !important; /* 粉色外衣 */
+    border-radius: 999px !important; /* 极致圆润 */
+    box-shadow: 0 4px 15px rgba(255, 182, 193, 0.4) !important; 
+    width: 100% !important; /* 强行撑满 900px */
+    padding: 0 !important; /* 内部无间隙 */
+    backdrop-filter: blur(15px) !important; /* 保留毛玻璃质感 */
+}}
+
+/* 3. 最内层的文字输入框保持透明，让外面粉色的胶囊显露 */
+[data-testid="stChatInput"] textarea {{
+    background: transparent !important;
+    border: none !important;
+    border-radius: 999px !important;
+    padding: 15px 25px !important; /* 输入框自己撑开厚度 */
+    color: #555 !important;
+}}
 </style>
 """, unsafe_allow_html=True)
 import base64
@@ -77,7 +179,10 @@ st.markdown(f"""
 /* 隐藏默认工具栏 */
 #MainMenu {{visibility: hidden;}}
 footer {{visibility: hidden;}}
-header {{visibility: hidden;}}
+/* 让顶部栏保持透明，但千万不要隐藏它，否则侧边栏展开按钮会消失 */
+header {{
+    background: transparent !important;
+}}
 
 /* 设置专属背景图 */
 .stApp {{
@@ -91,7 +196,7 @@ header {{visibility: hidden;}}
 
 /* 聊天框毛玻璃 */
 .stChatMessage {{
-    background-color: rgba(255, 255, 255, 0.75) !important;
+    background-color: rgba(255, 255, 255, 0.5) !important;
     backdrop-filter: blur(15px);
     border-radius: 20px;
     padding: 15px 20px;
@@ -102,8 +207,9 @@ header {{visibility: hidden;}}
 
 /* 可爱的粉色输入框 */
 [data-testid="stChatInput"] textarea {{
-    background: linear-gradient(135deg, #fff0f5 0%, #ffffff 100%) !important;
-    border: 2px solid #ffb6c1 !important;
+    background: linear-gradient(135deg, rgba(255, 240, 245, 0.6) 0%, rgba(255, 255, 255, 0.4) 100%) !important;
+    border: 2px solid rgba(255, 182, 193, 0.8) !important;
+    backdrop-filter: blur(10px); /* 给输入框也加一点点毛玻璃 */
     border-radius: 30px !important;
     box-shadow: 0 4px 15px rgba(255, 182, 193, 0.4) !important;
     color: #555 !important;
@@ -130,6 +236,10 @@ section[data-testid="stSidebar"] {{
 .stButton > button:hover {{
     transform: translateY(-2px) !important;
     box-shadow: 0 6px 15px rgba(255, 156, 172, 0.6) !important;
+}}
+[data-testid="stBottom"], [data-testid="stBottomBlockContainer"] {{
+    background-color: rgba(255, 240, 245, 0.8) !important; /* 变成温柔的粉色半透明 */
+    backdrop-filter: blur(15px) !important;
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -260,7 +370,7 @@ for idx, message in enumerate(st.session_state.messages):
                                 save_memory(st.session_state.messages)
                                 st.rerun()
                             else:
-                                st.error("语音生成失败，请重试")
+                                st.error("小涟暂时不想说话呢，请稍后再试~")
         
        
 

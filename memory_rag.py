@@ -65,4 +65,13 @@ class MemoryRAG:
         return memory_str
 
 # 创建一个全局实例
-rag = MemoryRAG()
+import streamlit as st  # 在文件最上面记得加这一行
+
+# ... 上面是你的类代码 ...
+
+# 替换掉原来的 rag = MemoryRAG()
+@st.cache_resource(show_spinner=False)
+def get_rag():
+    return MemoryRAG()
+
+rag = get_rag()
