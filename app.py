@@ -345,11 +345,18 @@ def play_voice(text, message_index):
 
 def save_memory(messages):
     if IS_CLOUD:
-        return  # 云端直接返回，绝对不写入共享文件！
+        return
+    # 转换成 JSON 能存的形式（过滤掉 audio 的二进制数据）
+    safe_messages = []
+    for msg in messages:
+        safe_msg = {"role": msg["role"], "content": msg["content"]}
+        # 音频不存文件，只存一个标记
+        if msg.get("audio"):
+            safe_msg["audio"] = "cached" 
+        safe_messages.append(safe_msg)
         
-    # 下面是你原来的代码，保持不动
     with open(MEMORY_FILE, "w", encoding="utf-8") as f:
-        json.dump(messages, f, ensure_ascii=False, indent=2)
+        json.dump(safe_messages, f, ensure_ascii=False, indent=2)
 
 # 初始化聊天记录（从本地读取，而不是清空）
 if "messages" not in st.session_state:
@@ -360,27 +367,23 @@ for idx, message in enumerate(st.session_state.messages):
     with st.chat_message(message["role"], avatar=avatar):
         st.markdown(message["content"])
         
-        # 只有昔涟的回复才显示语音按钮
+        # 只有昔涟的回复才显示音频或按钮
         if message["role"] == "assistant":
-            # 如果之前生成过语音，就直接显示播放器
-            if message.get("audio") and os.path.exists(message["audio"]):
+            # 判断之前是否已经生成过音频
+            if message.get("audio"):
+                # 如果已经有音频数据了，直接播放
                 st.audio(message["audio"], format="audio/mp3")
             else:
-                # 【核心修改】创建两列，让按钮跑到右边并变小
-                col1, col2 = st.columns([6, 1]) # 左边占 6 份空着，右边占 1 份放按钮
-                
-                with col2:
-                    # 用一个小图标代替长文字，鼠标悬停时会显示提示
-                    if st.button("🎵", key=f"tts_btn_{idx}", help="让小涟念给你听吧~"):
-                        with st.spinner("生成声音..."):
-                            audio_bytes = play_voice(message["content"], idx)
-if audio_bytes:
-    # 直接播放音频数据
-    st.audio(audio_bytes, format="audio/mp3")
-    # 因为现在没有文件路径了，不用再存 message["audio"] 了，直接刷新页面
-    st.rerun()
-else:
-                                st.error("小涟暂时不想说话呢，请稍后再试~")
+                # 如果没有，显示按钮
+                if st.button("🎵", key=f"tts_btn_{idx}", help="让小涟念给你听吧~"):
+                    with st.spinner("生成声音..."):
+                        audio_bytes = play_voice(message["content"], idx)
+                    if audio_bytes:
+                        message["audio"] = audio_bytes
+                        save_memory(st.session_state.messages)
+                        st.rerun()
+                    else:
+                        st.error("小涟暂时不想说话呢，请稍后再试~")
         
        
 
