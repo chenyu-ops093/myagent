@@ -1,2 +1,6 @@
 streamlit
 openai
+python-dotenv
+requests
+chromadb
+edge-tts
