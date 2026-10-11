@@ -19,7 +19,13 @@ MODEL = os.getenv("MODEL", "MiniMax-M3")
 
 # ================= 基础工具区 =================
 def get_time():
-    return {"ok": True, "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+    # 获取 UTC 时间并强制加上 8 小时转为北京时间
+    utc_now = datetime.datetime.now(datetime.timezone.utc)
+    bj_time = utc_now + datetime.timedelta(hours=8)
+    return {
+        "ok": True,
+        "time": bj_time.strftime("%Y-%m-%d %H:%M:%S"),
+    }
 
 def calculator(expression: str):
     if not re.fullmatch(r"[0-9+\-*/().\s]+", expression):
