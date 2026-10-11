@@ -1,8 +1,7 @@
-# 判断是不是在 Streamlit 云端运行
-IS_CLOUD = "mount/src" in os.getcwd() or "streamlit" in os.getenv("HOSTNAME", "").lower()
 import streamlit as st
 import os
-
+# 判断是不是在 Streamlit 云端运行
+IS_CLOUD = "mount/src" in os.getcwd() or "streamlit" in os.getenv("HOSTNAME", "").lower()
 # ================= 简单密码锁 =================
 # 你可以随时改这个密码，改完重启即可
 SECRET_PASSWORD = "xilian1112" 
